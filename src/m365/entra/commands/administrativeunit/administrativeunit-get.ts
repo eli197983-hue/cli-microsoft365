@@ -1,20 +1,28 @@
 import { AdministrativeUnit } from "@microsoft/microsoft-graph-types";
-import GlobalOptions from "../../../../GlobalOptions.js";
+import { z } from "zod";
 import { Logger } from "../../../../cli/Logger.js";
+import { globalOptionsZod } from "../../../../Command.js";
 import { validation } from "../../../../utils/validation.js";
 import request, { CliRequestOptions } from "../../../../request.js";
 import GraphCommand from "../../../base/GraphCommand.js";
 import commands from "../../commands.js";
 import { entraAdministrativeUnit } from "../../../../utils/entraAdministrativeUnit.js";
+import { zod } from "../../../../utils/zod.js";
+
+const options = globalOptionsZod
+  .extend({
+    id: zod.alias('i', z.string().refine(id => validation.isValidGuid(id), id => ({
+      message: `'${id}' is not a valid GUID.`
+    })).optional()),
+    displayName: zod.alias('n', z.string().optional()),
+    properties: zod.alias('p', z.string().optional())
+  })
+  .strict();
+
+declare type Options = z.infer<typeof options>;
 
 interface CommandArgs {
   options: Options;
-}
-
-export interface Options extends GlobalOptions {
-  id?: string;
-  displayName?: string;
-  properties?: string;
 }
 
 class EntraAdministrativeUnitGetCommand extends GraphCommand {
@@ -26,14 +34,24 @@ class EntraAdministrativeUnitGetCommand extends GraphCommand {
     return 'Gets information about a specific administrative unit';
   }
 
+  public get schema(): z.ZodTypeAny | undefined {
+    return options;
+  }
+
+  public getRefinedSchema(schema: typeof options): z.ZodEffects<any> | undefined {
+    return schema
+      .refine(options => !options.id !== !options.displayName, {
+        message: 'Specify either id or displayName, but not both'
+      })
+      .refine(options => options.id || options.displayName, {
+        message: 'Specify either id or displayName'
+      });
+  }
+
   constructor() {
     super();
 
     this.#initTelemetry();
-    this.#initOptions();
-    this.#initValidators();
-    this.#initOptionSets();
-    this.#initTypes();
   }
 
   #initTelemetry(): void {
@@ -44,40 +62,6 @@ class EntraAdministrativeUnitGetCommand extends GraphCommand {
         properties: typeof args.options.properties !== 'undefined'
       });
     });
-  }
-
-  #initOptions(): void {
-    this.options.unshift(
-      {
-        option: '-i, --id [id]'
-      },
-      {
-        option: '-n, --displayName [displayName]'
-      },
-      {
-        option: '-p, --properties [properties]'
-      }
-    );
-  }
-
-  #initValidators(): void {
-    this.validators.push(
-      async (args: CommandArgs) => {
-        if (args.options.id && !validation.isValidGuid(args.options.id as string)) {
-          return `${args.options.id} is not a valid GUID`;
-        }
-
-        return true;
-      }
-    );
-  }
-
-  #initOptionSets(): void {
-    this.optionSets.push({ options: ['id', 'displayName'] });
-  }
-
-  #initTypes(): void {
-    this.types.string.push('displayName');
   }
 
   public async commandAction(logger: Logger, args: CommandArgs): Promise<void> {

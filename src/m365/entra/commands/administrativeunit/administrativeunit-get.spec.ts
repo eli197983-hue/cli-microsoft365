@@ -1,5 +1,6 @@
 import assert from 'assert';
 import sinon from "sinon";
+import { z } from 'zod';
 import auth from '../../../../Auth.js';
 import { CommandInfo } from "../../../../cli/CommandInfo.js";
 import { Logger } from "../../../../cli/Logger.js";
@@ -19,6 +20,7 @@ describe(commands.ADMINISTRATIVEUNIT_GET, () => {
   let logger: Logger;
   let loggerLogSpy: sinon.SinonSpy;
   let commandInfo: CommandInfo;
+  let commandOptionsSchema: z.ZodTypeAny;
   const administrativeUnitsReponse = {
     value: [
       {
@@ -43,6 +45,7 @@ describe(commands.ADMINISTRATIVEUNIT_GET, () => {
     sinon.stub(session, 'getId').returns('');
     auth.connection.active = true;
     commandInfo = cli.getCommandInfo(command);
+    commandOptionsSchema = commandInfo.command.getSchemaToParse()!;
   });
 
   beforeEach(() => {
@@ -122,18 +125,37 @@ describe(commands.ADMINISTRATIVEUNIT_GET, () => {
     await assert.rejects(command.action(logger, { options: { id: validId } }), new CommandError(errorMessage));
   });
 
-  it('fails validation if the id is not a valid GUID', async () => {
-    const actual = await command.validate({ options: { id: '123' } }, commandInfo);
-    assert.notStrictEqual(actual, true);
+  it('fails validation if the id is not a valid GUID', () => {
+    const actual = commandOptionsSchema.safeParse({
+      id: '123'
+    });
+    assert.notStrictEqual(actual.success, true);
   });
 
-  it('passes validation if the id is a valid GUID', async () => {
-    const actual = await command.validate({ options: { id: validId } }, commandInfo);
-    assert.strictEqual(actual, true);
+  it('passes validation if the id is a valid GUID', () => {
+    const actual = commandOptionsSchema.safeParse({
+      id: validId
+    });
+    assert.strictEqual(actual.success, true);
   });
 
-  it('passes validation if required options specified (displayName)', async () => {
-    const actual = await command.validate({ options: { displayName: validDisplayName } }, commandInfo);
-    assert.strictEqual(actual, true);
+  it('passes validation if required options specified (displayName)', () => {
+    const actual = commandOptionsSchema.safeParse({
+      displayName: validDisplayName
+    });
+    assert.strictEqual(actual.success, true);
+  });
+
+  it('fails validation if both id and displayName are specified', () => {
+    const actual = commandOptionsSchema.safeParse({
+      id: validId,
+      displayName: validDisplayName
+    });
+    assert.notStrictEqual(actual.success, true);
+  });
+
+  it('fails validation if neither id nor displayName is specified', () => {
+    const actual = commandOptionsSchema.safeParse({});
+    assert.notStrictEqual(actual.success, true);
   });
 });
