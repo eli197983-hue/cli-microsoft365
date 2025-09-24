@@ -47,4 +47,4 @@ RUN git clone https://github.com/ohmyzsh/ohmyzsh.git ~/.oh-my-zsh \
  && sed -i "27s/# DISABLE_AUTO_UPDATE=\"true\"/DISABLE_AUTO_UPDATE=\"true\"/" ~/.zshrc \
  && sed -i "50s/# COMPLETION_WAITING_DOTS/COMPLETION_WAITING_DOTS/" ~/.zshrc
 
-CMD [ "/bin/zsh", "-l" ]
+CMD [ "/bin/zsh", "-l" 
